@@ -1,8 +1,7 @@
 
 import { Order, Affiliate, PayoutRequest } from '../types';
 
-const BASE_URL = (window as any).VITE_API_BASE_URL || 'https://dkadris-worker.workers.dev';
-
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dkadris-emails.pages.dev';
 async function request(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('dkadris_auth_token');
   const headers = {
