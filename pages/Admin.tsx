@@ -34,7 +34,16 @@ const Admin: React.FC = () => {
     };
     checkStatus();
   }, []);
+useEffect(() => {
+  const token = localStorage.getItem('dkadris_auth_token');
 
+  if (token) {
+    setIsAuth(true);
+  }
+
+  setIsLoading(false);
+}, []);
+  
   useEffect(() => {
     if (isAuth) {
       refreshData();
