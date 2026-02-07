@@ -1,10 +1,14 @@
-
 import { Order, Affiliate, PayoutRequest } from '../types';
 
+// Use the Pages environment variable for the Worker URL
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dkadris-emails.pages.dev';
+
+// Generic request helper
 async function request(endpoint: string, options: RequestInit = {}) {
+  // Read auth token from localStorage (set after admin login)
   const token = localStorage.getItem('dkadris_auth_token');
-  const headers = {
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
@@ -19,22 +23,37 @@ async function request(endpoint: string, options: RequestInit = {}) {
 }
 
 export const apiService = {
+  // ----------------------
   // Admin
-  adminLogin: (password: string) => request('/admin/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  // ----------------------
+  adminLogin: async (password: string) => {
+    // Use Pages env variable for admin password
+    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+    if (password !== ADMIN_PASSWORD) throw new Error('Invalid admin password');
+    // Call Worker login endpoint
+    return request('/admin/login', { method: 'POST', body: JSON.stringify({ password }) });
+  },
+
   getPayouts: (): Promise<PayoutRequest[]> => request('/admin/payouts'),
-  updatePayoutStatus: (payoutId: string, status: 'approved' | 'paid' | 'rejected') => 
+  updatePayoutStatus: (payoutId: string, status: 'approved' | 'paid' | 'rejected') =>
     request(`/admin/payouts/${payoutId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
+  // ----------------------
   // Affiliate
+  // ----------------------
   affiliateSignup: (data: any) => request('/affiliate/signup', { method: 'POST', body: JSON.stringify(data) }),
   affiliateLogin: (data: any) => request('/affiliate/login', { method: 'POST', body: JSON.stringify(data) }),
   getAffiliateStats: () => request('/affiliate/stats'),
   verifyEmail: (token: string) => request(`/affiliate/verify?token=${token}`),
 
+  // ----------------------
   // Orders & Referrals
+  // ----------------------
   trackOrder: (order: Order) => request('/orders/track', { method: 'POST', body: JSON.stringify(order) }),
-  
+
+  // ----------------------
   // Health Check
+  // ----------------------
   isWorkerActive: async () => {
     try {
       const res = await fetch(`${BASE_URL}/health`);
