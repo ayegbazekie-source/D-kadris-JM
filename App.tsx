@@ -37,9 +37,10 @@ const App: React.FC = () => {
         <Navbar />
         <main className="flex-grow">
           <Routes>
-  {/* Admin is ALWAYS accessible */}
+  {/* Admin must ALWAYS be accessible */}
   <Route path="/admin" element={<Admin />} />
 
+  {/* Public routes */}
   {isMaintenance ? (
     <Route path="*" element={<Maintenance />} />
   ) : (
@@ -47,7 +48,6 @@ const App: React.FC = () => {
       <Route path="/" element={<Home />} />
       <Route path="/catalog" element={<Catalog />} />
       <Route path="/affiliate" element={<Affiliate />} />
-      <Route path="*" element={<Home />} />
     </>
   )}
 </Routes>
