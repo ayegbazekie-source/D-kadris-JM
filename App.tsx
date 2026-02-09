@@ -54,7 +54,7 @@ const App: React.FC = () => {
 </Routes>
         </main>
         {!isMaintenance && <Footer />}
-        <Toaster />
+        <Toaster position="bottom-center" />
       </div>
     </Router>
   );
