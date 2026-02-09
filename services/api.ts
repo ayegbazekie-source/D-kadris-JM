@@ -1,8 +1,7 @@
 import { Order, Affiliate, PayoutRequest } from '../types';
 
 // Use the Pages environment variable for the Worker URL
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dkadris-emails.pages.dev';
-
+const BASE_URL = 'https://api.d-kadrisdenims.com';
 // Generic request helper
 async function request(endpoint: string, options: RequestInit = {}) {
   // Read auth token from localStorage (set after admin login)
@@ -27,9 +26,7 @@ export const apiService = {
   // Admin
   // ----------------------
   adminLogin: async (password: string) => {
-    // Use Pages env variable for admin password
-    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
-    if (password !== ADMIN_PASSWORD) throw new Error('Invalid admin password');
+    
     // Call Worker login endpoint
     return request('/admin/login', { method: 'POST', body: JSON.stringify({ password }) });
   },
