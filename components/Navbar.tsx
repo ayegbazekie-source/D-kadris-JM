@@ -90,9 +90,7 @@ const Navbar: React.FC = () => {
             <Link onClick={() => setIsMenuOpen(false)} to="/" className="text-4xl md:text-5xl font-black text-white hover:text-gold transition-all uppercase tracking-tighter">Home</Link>
             <Link onClick={() => setIsMenuOpen(false)} to="/catalog" className="text-4xl md:text-5xl font-black text-white hover:text-gold transition-all uppercase tracking-tighter">Shop</Link>
             <Link onClick={() => setIsMenuOpen(false)} to="/affiliate" className="text-4xl md:text-5xl font-black text-white hover:text-gold transition-all uppercase tracking-tighter">Affiliates</Link>
-            {showAdmin && (
-              <Link onClick={() => setIsMenuOpen(false)} to="/admin" className="text-base md:text-xl font-bold text-gold/60 hover:text-gold transition-all uppercase tracking-widest border-t border-white/10 pt-10 mt-6">Admin Entry</Link>
-            )}
+            
           </div>
         </div>
       </div>
