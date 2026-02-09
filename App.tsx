@@ -1,3 +1,4 @@
+import { Toaster } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -53,6 +54,7 @@ const App: React.FC = () => {
 </Routes>
         </main>
         {!isMaintenance && <Footer />}
+        <Toaster />
       </div>
     </Router>
   );
