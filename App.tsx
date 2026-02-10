@@ -1,6 +1,6 @@
-import { Toaster } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -35,6 +35,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex flex-col min-h-screen">
+        <Toaster position="bottom-center" />
         <Navbar />
         <main className="flex-grow">
           <Routes>
@@ -54,7 +55,6 @@ const App: React.FC = () => {
 </Routes>
         </main>
         {!isMaintenance && <Footer />}
-        <Toaster position="bottom-center" />
       </div>
     </Router>
   );
