@@ -247,7 +247,7 @@ useEffect(() => {
         {activeTab === 'payouts' && (
           <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-navy/5 overflow-hidden">
             <h2 className="text-3xl font-bold text-navy font-belina mb-8">Payout Approvals</h2>
-            {!workerConnected ? (
+            {false ? (
               <div className="p-12 text-center text-navy/30 italic">Backend connection required to manage payouts.</div>
             ) : (
               <div className="overflow-x-auto">
