@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -35,24 +34,20 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex flex-col min-h-screen">
-        <Toaster position="bottom-center" />
         <Navbar />
         <main className="flex-grow">
           <Routes>
-  {/* Admin must ALWAYS be accessible */}
-  <Route path="/admin" element={<Admin />} />
-
-  {/* Public routes */}
-  {isMaintenance ? (
-    <Route path="*" element={<Maintenance />} />
-  ) : (
-    <>
-      <Route path="/" element={<Home />} />
-      <Route path="/catalog" element={<Catalog />} />
-      <Route path="/affiliate" element={<Affiliate />} />
-    </>
-  )}
-</Routes>
+            <Route path="/admin" element={<Admin />} />
+            {isMaintenance ? (
+              <Route path="*" element={<Maintenance />} />
+            ) : (
+              <>
+                <Route path="/" element={<Home />} />
+                <Route path="/catalog" element={<Catalog />} />
+                <Route path="/affiliate" element={<Affiliate />} />
+              </>
+            )}
+          </Routes>
         </main>
         {!isMaintenance && <Footer />}
       </div>
