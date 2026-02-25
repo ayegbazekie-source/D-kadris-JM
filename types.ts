@@ -59,14 +59,6 @@ export interface PayoutRequest {
   history: { status: string; date: number; actor: 'admin' | 'system' }[];
 }
 
-export interface FeaturedFit {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  layoutType: 'bold' | 'wide' | 'tall' | 'standard';
-}
-
 export interface FeatureToggles {
   enablePayments: boolean;
   enableVendorAccounts: boolean;
@@ -75,20 +67,46 @@ export interface FeatureToggles {
   enableAffiliateWithdrawals: boolean;
 }
 
+export interface GalleryItem {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  orderIndex: number;
+}
+
+export interface GalleryConfig {
+  layout: 'grid' | 'carousel';
+  columns: 2 | 3 | 4;
+  displayCount: number;
+  visible: boolean;
+}
+
 export interface SiteConfig {
   logoText: string;
   logoType: 'text' | 'image';
-  logoImage?: string; // Base64
+  logoImage?: string;
+  logoWidth?: number;
+  logoHeight?: number;
   heroTitle: string;
   heroSubtitle: string;
   heroBgType: 'url' | 'upload';
   heroBgUrl: string;
-  heroBgUpload?: string; // Base64
+  heroBgUpload?: string;
   shopButtonText: string;
   brandQuote: string;
   facebookUrl: string;
   instagramUrl: string;
   tiktokUrl: string;
-  featuredFits: FeaturedFit[];
+  footerContent: string;
+  contactEmail: string;
+  contactPhone: string;
   featureToggles: FeatureToggles;
+}
+
+export interface AppData {
+  catalogs: Product[];
+  gallery: GalleryItem[];
+  galleryConfig: GalleryConfig;
+  siteSettings: SiteConfig;
 }
