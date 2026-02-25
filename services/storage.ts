@@ -54,6 +54,8 @@ const DEFAULT_CONFIG: SiteConfig = {
   facebookUrl: 'https://www.facebook.com/profile.php?id=61559673571368',
   instagramUrl: 'https://www.instagram.com/dkadris_tailoring?igsh=MW1jM2xud2Y1YW1xdw==',
   tiktokUrl: 'https://www.tiktok.com/@dkadris.tailoring?_r=1&_t=ZS-93ZAREPRK4L',
+  contactEmail: 'dkadristailoringservice@gmail.com',
+  contactPhone: '+2348163914835',
   featuredFits: DEFAULT_FEATURED_FITS,
   featureToggles: DEFAULT_TOGGLES
 };
