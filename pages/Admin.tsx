@@ -62,7 +62,8 @@ setGallery(Array.isArray(galleryRes?.items) ? galleryRes.items : []);
 
 setGalleryConfig(galleryRes?.config ?? defaultGalleryConfig);
 
-setSiteConfig(settingsRes ?? defaultSiteConfig);
+const savedConfig = settingsRes ?? storage.getSiteConfig();
+setSiteConfig({ ...storage.getSiteConfig(), ...savedConfig });
 
   } catch (err) {
     console.error("Failed to fetch data", err);
