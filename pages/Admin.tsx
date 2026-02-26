@@ -374,6 +374,36 @@ if (Array.isArray(storedAffiliates)) {
           </div>
         )}
 
+        {activeTab === 'orders' && (
+  <div className="space-y-6">
+    <h2 className="text-2xl font-bold text-navy">Orders</h2>
+    {orders.length === 0 ? (
+      <p>No orders yet.</p>
+    ) : (
+      <table className="w-full border-collapse text-left">
+        <thead>
+          <tr className="border-b">
+            <th className="px-4 py-2">Order ID</th>
+            <th className="px-4 py-2">Customer</th>
+            <th className="px-4 py-2">Total</th>
+            <th className="px-4 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(order => (
+            <tr key={order.id} className="border-b">
+              <td className="px-4 py-2">{order.id}</td>
+              <td className="px-4 py-2">{order.customerName}</td>
+              <td className="px-4 py-2">₦{order.total}</td>
+              <td className="px-4 py-2">{order.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
+
         {activeTab === 'payouts' && (
           <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-navy/5 overflow-hidden">
             <h2 className="text-3xl font-bold text-navy font-belina mb-8">Payout Approvals</h2>
