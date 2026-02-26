@@ -38,8 +38,8 @@ const DEFAULT_CONFIG: SiteConfig = {
   instagramUrl: 'https://www.instagram.com/dkadris_tailoring?igsh=MW1jM2xud2Y1YW1xdw==',
   tiktokUrl: 'https://www.tiktok.com/@dkadris.tailoring?_r=1&_t=ZS-93ZAREPRK4L',
   contactEmail: 'dkadristailoringservice@gmail.com',
-  contactPhone: '+234 800 000 0000',
-  footerContent: 'Ready-to-wear sizes also available in all major cities.',
+  contactPhone: '+2348163914835', // ✅ updated
+  footerContent: "Premium denim, crafted in Nigeria, worn by the world.", // ✅ updated
   featureToggles: DEFAULT_TOGGLES
 };
 
@@ -49,46 +49,25 @@ const notify = () => {
 
 export const storage = {
   // ---------------- ORDERS ----------------
-  getOrders: (): Order[] => {
-    return safeParse<Order[]>(
-      localStorage.getItem(KEYS.ORDERS),
-      []
-    );
-  },
-
+  getOrders: (): Order[] => safeParse<Order[]>(localStorage.getItem(KEYS.ORDERS), []),
   setOrders: (orders: Order[]) => {
     localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
     notify();
   },
 
-  // ---------------- AFFILIATES (ARRAY ONLY) ----------------
+  // ---------------- AFFILIATES ----------------
   getAffiliates: (): Affiliate[] => {
-    const data = safeParse<any>(
-      localStorage.getItem(KEYS.AFFILIATES),
-      []
-    );
-
-    // Convert old object format to array
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      return Object.values(data);
-    }
-
+    const data = safeParse<any>(localStorage.getItem(KEYS.AFFILIATES), []);
+    if (data && typeof data === 'object' && !Array.isArray(data)) return Object.values(data);
     return Array.isArray(data) ? data : [];
   },
-
   setAffiliates: (affiliates: Affiliate[]) => {
     localStorage.setItem(KEYS.AFFILIATES, JSON.stringify(affiliates));
     notify();
   },
 
   // ---------------- MAINTENANCE ----------------
-  getMaintenance: (): boolean => {
-    return safeParse<boolean>(
-      localStorage.getItem(KEYS.MAINTENANCE),
-      false
-    );
-  },
-
+  getMaintenance: (): boolean => safeParse<boolean>(localStorage.getItem(KEYS.MAINTENANCE), false),
   setMaintenance: (status: boolean) => {
     localStorage.setItem(KEYS.MAINTENANCE, JSON.stringify(status));
     notify();
@@ -96,21 +75,16 @@ export const storage = {
 
   // ---------------- SITE CONFIG ----------------
   getSiteConfig: (): SiteConfig => {
-  const saved = safeParse<Partial<SiteConfig>>(
-    localStorage.getItem(KEYS.SITE_CONFIG),
-    {}
-  );
-
-  return {
-    ...DEFAULT_CONFIG,
-    ...saved,
-    featureToggles: {
-      ...DEFAULT_TOGGLES,
-      ...saved.featureToggles
-    }
-  };
-  }
-
+    const saved = safeParse<Partial<SiteConfig>>(localStorage.getItem(KEYS.SITE_CONFIG), {});
+    return {
+      ...DEFAULT_CONFIG,
+      ...saved,
+      featureToggles: {
+        ...DEFAULT_TOGGLES,
+        ...saved.featureToggles
+      }
+    };
+  }, // ✅ COMMA FIXED
   setSiteConfig: (config: SiteConfig) => {
     localStorage.setItem(KEYS.SITE_CONFIG, JSON.stringify(config));
     notify();
