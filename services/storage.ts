@@ -28,18 +28,22 @@ const DEFAULT_TOGGLES: FeatureToggles = {
 const DEFAULT_CONFIG: SiteConfig = {
   logoText: 'D-Kadris',
   logoType: 'text',
+  logoImage: '',        // Fixes potential crash
+  logoWidth: 150,       // Fixes potential crash
+  logoHeight: 50,       // Fixes potential crash
   heroTitle: 'Authentic Denim.\nTailored in Nigeria.\nWorn by You.',
   heroSubtitle: 'Premium jeans crafted with pride.',
   heroBgType: 'url',
   heroBgUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=2000&auto=format&fit=crop',
+  heroBgUpload: '',     // Fixes potential crash
   shopButtonText: 'Shop Collection',
   brandQuote: '"Every stitch tells a story of Nigerian craftsmanship."',
   facebookUrl: 'https://www.facebook.com/profile.php?id=61559673571368',
   instagramUrl: 'https://www.instagram.com/dkadris_tailoring?igsh=MW1jM2xud2Y1YW1xdw==',
   tiktokUrl: 'https://www.tiktok.com/@dkadris.tailoring?_r=1&_t=ZS-93ZAREPRK4L',
   contactEmail: 'dkadristailoringservice@gmail.com',
-  contactPhone: '+2348163914835', // ✅ updated
-  footerContent: "Premium denim, crafted in Nigeria, worn by the world.", // ✅ updated
+  contactPhone: '+2348163914835',
+  featuredFits: DEFAULT_FEATURED_FITS,
   featureToggles: DEFAULT_TOGGLES
 };
 
