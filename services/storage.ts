@@ -96,11 +96,20 @@ export const storage = {
 
   // ---------------- SITE CONFIG ----------------
   getSiteConfig: (): SiteConfig => {
-    return safeParse<SiteConfig>(
-      localStorage.getItem(KEYS.SITE_CONFIG),
-      DEFAULT_CONFIG
-    );
-  },
+  const saved = safeParse<Partial<SiteConfig>>(
+    localStorage.getItem(KEYS.SITE_CONFIG),
+    {}
+  );
+
+  return {
+    ...DEFAULT_CONFIG,
+    ...saved,
+    featureToggles: {
+      ...DEFAULT_TOGGLES,
+      ...saved.featureToggles
+    }
+  };
+  }
 
   setSiteConfig: (config: SiteConfig) => {
     localStorage.setItem(KEYS.SITE_CONFIG, JSON.stringify(config));
