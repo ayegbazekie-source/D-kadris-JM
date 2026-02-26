@@ -1,113 +1,184 @@
+import React, { useState, useEffect } from 'react';
+import { storage } from '../services/storage';
+import { apiService } from '../services/api';
+import { Product, Order, Affiliate, SiteConfig, GalleryItem, GalleryConfig, PayoutRequest } from '../types';
 
-import { Product, Order, Affiliate, SiteConfig, FeaturedFit, FeatureToggles } from '../types';
-import { INITIAL_PRODUCTS } from '../constants';
+const Admin: React.FC = () => {
+  // --- UI & Auth State ---
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuth, setIsAuth] = useState(false);
+  const [activeTab, setActiveTab] = useState<'products' | 'gallery' | 'orders' | 'affiliates' | 'payouts' | 'cms' | 'system'>('products');
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [workerConnected, setWorkerConnected] = useState(false);
 
-const KEYS = {
-  PRODUCTS: 'dkadris_products',
-  ORDERS: 'dkadris_orders',
-  AFFILIATES: 'dkadris_affiliates',
-  ADMIN_AUTH: 'dkadris_admin_auth',
-  SITE_CONFIG: 'dkadris_site_config'
+  // --- Data State ---
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
+  const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [galleryConfig, setGalleryConfig] = useState<GalleryConfig | null>(null);
+
+  // --- Initialization ---
+  useEffect(() => {
+    const checkStatus = async () => {
+      const active = await apiService.isWorkerActive();
+      setWorkerConnected(active);
+      const session = sessionStorage.getItem('dkadris_admin_auth') === 'true';
+      setIsAuth(session);
+      setIsLoading(false);
+    };
+    checkStatus();
+  }, []);
+
+  useEffect(() => {
+    if (isAuth) {
+      refreshData();
+    }
+  }, [isAuth, workerConnected]);
+
+  const refreshData = async () => {
+    try {
+      const [catalogRes, galleryRes, settingsRes] = await Promise.all([
+        apiService.getCatalogs(1, 1000),
+        apiService.getGallery(),
+        apiService.getSettings()
+      ]);
+
+      // Set API Data with fallbacks
+      setProducts(Array.isArray(catalogRes?.data) ? catalogRes.data : Array.isArray(catalogRes) ? catalogRes : []);
+      setGallery(Array.isArray(galleryRes?.items) ? galleryRes.items : []);
+      setGalleryConfig(galleryRes?.config ?? null);
+      setSiteConfig(settingsRes ?? storage.getSiteConfig()); //
+
+    } catch (err) {
+      console.error("Failed to fetch data", err);
+    }
+
+    // Set Local Storage Data
+    setOrders(storage.getOrders() ?? []);
+    setIsMaintenance(storage.getMaintenance() ?? false);
+
+    const storedAffiliates = storage.getAffiliates();
+    if (Array.isArray(storedAffiliates)) {
+      setAffiliates(storedAffiliates);
+    } else if (storedAffiliates && typeof storedAffiliates === 'object') {
+      setAffiliates(Object.values(storedAffiliates));
+    }
+  };
+
+  // --- Save Functions ---
+  const handleGlobalSave = () => {
+    switch (activeTab) {
+      case 'products':
+        storage.setProducts(products); //
+        alert("Product catalog saved to local storage!");
+        break;
+      case 'cms':
+        if (siteConfig) {
+          storage.setSiteConfig(siteConfig); //
+          alert("Site configuration updated!");
+        }
+        break;
+      case 'orders':
+        storage.setOrders(orders); //
+        alert("Orders synchronized!");
+        break;
+      case 'system':
+        storage.setMaintenance(isMaintenance); //
+        alert("System settings updated!");
+        break;
+      default:
+        alert("Save functionality for this tab is handled via API.");
+    }
+  };
+
+  if (isLoading) return <div>Loading Admin...</div>;
+  if (!isAuth) return <div>Unauthorized Access</div>;
+
+  return (
+    <div style={{ paddingBottom: '80px', minHeight: '100vh', backgroundColor: '#f9f9f9' }}>
+      <h1>D-Kadris Admin Dashboard</h1>
+      
+      {/* Tab Navigation logic would go here */}
+
+      {/* Main Content Area */}
+      <main>
+        {activeTab === 'products' && (
+          <div>
+            {/* Render your product list/inputs here */}
+            <p>Managing {products.length} Products</p>
+          </div>
+        )}
+        
+        {activeTab === 'cms' && siteConfig && (
+          <div>
+            <label>Hero Title</label>
+            <input 
+              value={siteConfig.heroTitle} 
+              onChange={(e) => setSiteConfig({...siteConfig, heroTitle: e.target.value})}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* --- Floating Save Bar --- */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '90%',
+        maxWidth: '800px',
+        backgroundColor: '#1a1a1a', // Dark indigo/denim feel
+        color: 'white',
+        padding: '16px 24px',
+        borderRadius: '12px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+        border: '1px solid #333',
+        zIndex: 1000
+      }}>
+        <div style={{ fontSize: '14px', opacity: 0.8 }}>
+          Editing <b>{activeTab.toUpperCase()}</b>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={refreshData}
+            style={{
+              background: 'transparent',
+              color: '#ccc',
+              border: '1px solid #444',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            Discard
+          </button>
+          <button 
+            onClick={handleGlobalSave}
+            style={{
+              background: '#2563eb', // Clean blue accent
+              color: 'white',
+              border: 'none',
+              padding: '8px 20px',
+              borderRadius: '6px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const DEFAULT_FEATURED_FITS: FeaturedFit[] = [
-  {
-    id: 'f1',
-    title: 'Savanna Bootcut',
-    description: 'The ultimate classic for any occasion.',
-    image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=1000&auto=format&fit=crop',
-    layoutType: 'bold'
-  },
-  {
-    id: 'f2',
-    title: 'Lagos Slim Fit',
-    description: 'Precision cut for the modern urban dweller.',
-    image: 'https://images.unsplash.com/photo-1582552938357-32b906df40cb?w=800&auto=format&fit=crop',
-    layoutType: 'tall'
-  },
-  {
-    id: 'f3',
-    title: 'Signature Stitch',
-    description: 'Our premium artisanal denim line.',
-    image: 'https://images.unsplash.com/photo-1516762689617-e1cffcef479d?w=800&auto=format&fit=crop',
-    layoutType: 'standard'
-  }
-];
-
-const DEFAULT_TOGGLES: FeatureToggles = {
-  enablePayments: false,
-  enableVendorAccounts: false,
-  enableBulkOrders: false,
-  enableCommissions: false,
-  enableAffiliateWithdrawals: false
-};
-
-const DEFAULT_CONFIG: SiteConfig = {
-  logoText: 'D-Kadris',
-  logoType: 'text',
-  heroTitle: 'Authentic Denim.\nTailored in Nigeria.\nWorn by You.',
-  heroSubtitle: 'Premium jeans crafted with pride.',
-  heroBgType: 'url',
-  heroBgUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=2000&auto=format&fit=crop',
-  shopButtonText: 'Shop Collection',
-  brandQuote: '"Every stitch tells a story of Nigerian craftsmanship."',
-  facebookUrl: 'https://www.facebook.com/profile.php?id=61559673571368',
-  instagramUrl: 'https://www.instagram.com/dkadris_tailoring?igsh=MW1jM2xud2Y1YW1xdw==',
-  tiktokUrl: 'https://www.tiktok.com/@dkadris.tailoring?_r=1&_t=ZS-93ZAREPRK4L',
-  contactEmail: 'dkadristailoringservice@gmail.com',
-  contactPhone: '+2348163914835',
-  featuredFits: DEFAULT_FEATURED_FITS,
-  featureToggles: DEFAULT_TOGGLES
-};
-
-// Helper to notify other components of state changes
-const notify = () => {
-  window.dispatchEvent(new CustomEvent('dkadris_storage_update'));
-};
-
-export const storage = {
-  getProducts: (): Product[] => {
-    const data = localStorage.getItem(KEYS.PRODUCTS);
-    const products = data ? JSON.parse(data) : INITIAL_PRODUCTS;
-    return products.map((p: any) => ({
-      ...p,
-      whitelisted: p.whitelisted ?? true,
-      createdAt: p.createdAt ?? Date.now()
-    }));
-  },
-  setProducts: (products: Product[]) => {
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
-    notify();
-  },
-  getOrders: (): Order[] => {
-    const data = localStorage.getItem(KEYS.ORDERS);
-    return data ? JSON.parse(data) : [];
-  },
-  setOrders: (orders: Order[]) => {
-    localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
-    notify();
-  },
-  getAffiliates: (): Record<string, Affiliate> => {
-    const data = localStorage.getItem(KEYS.AFFILIATES);
-    return data ? JSON.parse(data) : {};
-  },
-  setAffiliates: (affiliates: Record<string, Affiliate>) => {
-    localStorage.setItem(KEYS.AFFILIATES, JSON.stringify(affiliates));
-    notify();
-  },
-  getMaintenance: (): boolean => {
-    return localStorage.getItem('maintenance') === 'true';
-  },
-  setMaintenance: (status: boolean) => {
-    localStorage.setItem('maintenance', String(status));
-    notify();
-  },
-  getSiteConfig: (): SiteConfig => {
-    const data = localStorage.getItem(KEYS.SITE_CONFIG);
-    return data ? JSON.parse(data) : DEFAULT_CONFIG;
-  },
-  setSiteConfig: (config: SiteConfig) => {
-    localStorage.setItem(KEYS.SITE_CONFIG, JSON.stringify(config));
-    notify();
-  }
-};
+export default Admin;
+  
