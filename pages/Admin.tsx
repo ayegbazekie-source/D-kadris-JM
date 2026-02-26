@@ -14,7 +14,7 @@ const Admin: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
-  const [affiliates, setAffiliates] = useState<Record<string, Affiliate>>({});
+  const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [galleryConfig, setGalleryConfig] = useState<GalleryConfig | null>(null);
@@ -45,33 +45,53 @@ const Admin: React.FC = () => {
   }, [isAuth, workerConnected]);
 
   const refreshData = async () => {
+  try {
+    const [catalogRes, galleryRes, settingsRes] = await Promise.all([
+      apiService.getCatalogs(1, 1000),
+      apiService.getGallery(),
+      apiService.getSettings()
+    ]);
+
+    setProducts(Array.isArray(catalogRes?.data)
+  ? catalogRes.data
+  : Array.isArray(catalogRes)
+  ? catalogRes
+  : []);
+
+setGallery(Array.isArray(galleryRes?.items) ? galleryRes.items : []);
+
+setGalleryConfig(galleryRes?.config ?? defaultGalleryConfig);
+
+setSiteConfig(settingsRes ?? defaultSiteConfig);
+
+  } catch (err) {
+    console.error("Failed to fetch data", err);
+    setProducts([]);
+    setGallery([]);
+  }
+
+  setOrders(storage.getOrders() ?? []);
+  const storedAffiliates = storage.getAffiliates();
+
+if (Array.isArray(storedAffiliates)) {
+  setAffiliates(storedAffiliates);
+} else if (storedAffiliates && typeof storedAffiliates === 'object') {
+  setAffiliates(Object.values(storedAffiliates));
+} else {
+  setAffiliates([]);
+}
+  setIsMaintenance(storage.getMaintenance() ?? false);
+
+  if (workerConnected) {
     try {
-      const [catalogRes, galleryRes, settingsRes] = await Promise.all([
-        apiService.getCatalogs(1, 1000),
-        apiService.getGallery(),
-        apiService.getSettings()
-      ]);
-      setProducts(catalogRes.data);
-      setGallery(galleryRes.items);
-      setGalleryConfig(galleryRes.config);
-      setSiteConfig(settingsRes);
+      const backendPayouts = await apiService.getPayouts();
+      setPayouts(Array.isArray(backendPayouts) ? backendPayouts : []);
     } catch (err) {
-      console.error("Failed to fetch data", err);
+      console.error("Failed to fetch backend payouts", err);
+      setPayouts([]);
     }
-    
-    setOrders(storage.getOrders());
-    setAffiliates(storage.getAffiliates());
-    setIsMaintenance(storage.getMaintenance());
-    
-    if (workerConnected || true) {
-      try {
-        const backendPayouts = await apiService.getPayouts();
-        setPayouts(backendPayouts);
-      } catch (err) {
-        console.error("Failed to fetch backend stats", err);
-      }
-    }
-  };
+  }
+};
 
   const executeLogin = async () => {
     if (workerConnected) {
