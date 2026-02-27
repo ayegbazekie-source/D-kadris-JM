@@ -116,7 +116,7 @@ const Home: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
-            {config.featuredFits.map((fit) => (
+            {config.featuredFits?.map((fit) => (
               <div 
                 key={fit.id} 
                 className={`relative group rounded-3xl overflow-hidden shadow-2xl border-4 border-navy/5 ${getLayoutClass(fit.layoutType)}`}
