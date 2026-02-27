@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: SiteConfig = {
   contactEmail: 'dkadristailoringservice@gmail.com',
   contactPhone: '+234 816 391 4835',
   footerContent: 'Premium denim, crafted in Nigeria, worn by the world.',
-  featureToggles: DEFAULT_TOGGLES
+  featureToggles: DEFAULT_TOGGLES, featuredFits: []
 };
 
 const notify = () => {
