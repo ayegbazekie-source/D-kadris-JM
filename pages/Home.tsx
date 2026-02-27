@@ -6,9 +6,8 @@ import { SiteConfig, FeaturedFit } from '../types';
 
 const Home: React.FC = () => {
   const [msgIndex, setMsgIndex] = useState(0);
-  const storedConfig = storage.getSiteConfig();
-const [config, setConfig] = useState<SiteConfig>(
-  storedConfig ? { ...defaultConfig, ...storedConfig } : defaultConfig
+  const [config, setConfig] = useState<SiteConfig>(
+  storage.getSiteConfig()
 );
   useEffect(() => {
     const updateConfig = () => {
