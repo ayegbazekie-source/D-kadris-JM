@@ -15,7 +15,17 @@ const Admin: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const defaultConfig: SiteConfig = storage.getSiteConfig() || {
+  heroBgType: 'url',
+  heroBgUrl: '',
+  heroBgUpload: '',
+  heroTitle: '',
+  heroSubtitle: '',
+  shopButtonText: '',
+  logoType: 'text',
+};
+
+const [siteConfig, setSiteConfig] = useState<SiteConfig>(defaultConfig);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [galleryConfig, setGalleryConfig] = useState<GalleryConfig | null>(null);
   const [isMaintenance, setIsMaintenance] = useState(storage.getMaintenance());
