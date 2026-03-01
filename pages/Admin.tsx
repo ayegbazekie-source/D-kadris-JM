@@ -41,8 +41,10 @@ const [siteConfig, setSiteConfig] = useState<SiteConfig>(defaultConfig);
     const checkStatus = async () => {
       const active = await apiService.isWorkerActive();
       setWorkerConnected(active);
-      const session = sessionStorage.getItem('dkadris_admin_auth') === 'true';
-      setIsAuth(session);
+      const token = localStorage.getItem('dkadris_auth_token');
+      if (token) {
+        setIsAuth(true);
+      }
       setIsLoading(false);
     };
     checkStatus();
@@ -52,77 +54,100 @@ const [siteConfig, setSiteConfig] = useState<SiteConfig>(defaultConfig);
     if (isAuth) {
       refreshData();
     }
-  }, [isAuth, workerConnected]);
+  }, [isAuth]);
 
   const refreshData = async () => {
-  try {
-    const [catalogRes, galleryRes, settingsRes] = await Promise.all([
-      apiService.getCatalogs(1, 1000),
-      apiService.getGallery(),
-      apiService.getSettings()
-    ]);
-
-    setProducts(Array.isArray(catalogRes?.data)
-  ? catalogRes.data
-  : Array.isArray(catalogRes)
-  ? catalogRes
-  : []);
-
-setGallery(Array.isArray(galleryRes?.items) ? galleryRes.items : []);
-
-setGalleryConfig(galleryRes?.config ?? defaultGalleryConfig);
-
-const savedConfig = settingsRes ?? storage.getSiteConfig();
-setSiteConfig({ ...storage.getSiteConfig(), ...savedConfig });
-
-  } catch (err) {
-    console.error("Failed to fetch data", err);
-    setProducts([]);
-    setGallery([]);
-  }
-
-  setOrders(storage.getOrders() ?? []);
-  const storedAffiliates = storage.getAffiliates();
-
-if (Array.isArray(storedAffiliates)) {
-  setAffiliates(storedAffiliates);
-} else if (storedAffiliates && typeof storedAffiliates === 'object') {
-  setAffiliates(Object.values(storedAffiliates));
-} else {
-  setAffiliates([]);
-}
-  setIsMaintenance(storage.getMaintenance() ?? false);
-
-  if (workerConnected) {
+    setIsLoading(true);
     try {
-      const backendPayouts = await apiService.getPayouts();
-      setPayouts(Array.isArray(backendPayouts) ? backendPayouts : []);
+      const draft = await apiService.getDraftConfig();
+      setProducts(draft.catalogs || []);
+      setSiteConfig(draft.siteSettings);
+      setGallery(draft.siteSettings?.featuredFits || []);
+      
+      // Fetch orders from backend
+      try {
+        const backendOrders = await apiService.getOrders?.() || [];
+        setOrders(backendOrders);
+      } catch (e) {
+        console.error("Failed to fetch orders", e);
+        setOrders([]);
+      }
+
+      // Fetch affiliates from backend
+      try {
+        const backendAffiliates = await apiService.getAffiliates?.() || {};
+        setAffiliates(backendAffiliates);
+      } catch (e) {
+        console.error("Failed to fetch affiliates", e);
+        setAffiliates({});
+      }
+
+      // Fetch payouts from backend
+      try {
+        const backendPayouts = await apiService.getPayouts();
+        setPayouts(backendPayouts || []);
+      } catch (err) {
+        console.error("Failed to fetch payouts", err);
+        setPayouts([]);
+      }
     } catch (err) {
-      console.error("Failed to fetch backend payouts", err);
-      setPayouts([]);
+      const msg = (err as Error).message;
+      console.error("Failed to fetch draft data:", msg);
+      
+      // If unauthorized, logout
+      if (msg.includes('Unauthorized') || msg.includes('Invalid token')) {
+        logout();
+      } else {
+        alert("System Error: " + msg);
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }
-};
+  };
+
+  const syncDraft = async (updatedProducts?: Product[], updatedSettings?: SiteConfig) => {
+    try {
+      const payload = {
+        catalogs: updatedProducts || products,
+        siteSettings: updatedSettings || siteConfig
+      };
+      await apiService.updateDraft(payload);
+    } catch (err) {
+      console.error("Failed to sync draft", err);
+    }
+  };
+
+  const publishLive = async () => {
+    if (!confirm("Are you sure you want to publish all changes to the live site?")) return;
+    setIsPublishing(true);
+    try {
+      await apiService.publishLive();
+      alert("Site published successfully!");
+      await refreshData();
+    } catch (err) {
+      alert("Publish failed: " + (err as Error).message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   const executeLogin = async () => {
-    if (workerConnected) {
-      try {
-        const res = await apiService.adminLogin(password);
-        localStorage.setItem('dkadris_auth_token', res.token);
-      } catch (err) {
-        alert("Backend Login Failed: " + (err as Error).message);
-        return;
-      }
+    setIsLoading(true);
+    try {
+      const res = await apiService.adminLogin(password);
+      localStorage.setItem('dkadris_auth_token', res.token);
+      setIsAuth(true);
+      await refreshData();
+    } catch (err) {
+      alert("Login Failed: " + (err as Error).message);
+    } finally {
+      setIsLoading(false);
     }
-    sessionStorage.setItem('dkadris_admin_auth', 'true');
-    setIsAuth(true);
-    window.dispatchEvent(new CustomEvent('dkadris_storage_update'));
   };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123' || workerConnected) executeLogin();
-    else alert("Invalid Access Key");
+    executeLogin();
   };
 
   const handlePayoutAction = async (id: string, status: 'approved' | 'paid' | 'rejected') => {
@@ -139,13 +164,21 @@ if (Array.isArray(storedAffiliates)) {
     }
   };
 
+  const handleApproveOrder = async (id: string) => {
+    try {
+      await apiService.approveOrder(id);
+      refreshData();
+      alert("Order approved and commission credited!");
+    } catch (err) {
+      alert("Approval failed: " + (err as Error).message);
+    }
+  };
+
   const logout = () => {
-    sessionStorage.removeItem('dkadris_admin_auth');
-    localStorage.removeItem('dkadris_auth_token');
+    apiService.adminLogout();
     setIsAuth(false);
     setIsSafeMode(false);
     setPassword('');
-    window.dispatchEvent(new CustomEvent('dkadris_storage_update'));
   };
 
   const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
@@ -169,36 +202,39 @@ if (Array.isArray(storedAffiliates)) {
 
   // Product CRUD
   const saveProduct = async (p: Product) => {
-    try {
-      await apiService.saveCatalog(p);
-      await refreshData();
-      setEditingProduct(null);
-      setIsAddingProduct(false);
-    } catch (err) {
-      alert("Failed to save product: " + (err as Error).message);
-    }
+    const newProducts = [...products];
+    const idx = newProducts.findIndex(item => item.id === p.id);
+    if (idx !== -1) newProducts[idx] = p;
+    else newProducts.push(p);
+    
+    setProducts(newProducts);
+    setEditingProduct(null);
+    setIsAddingProduct(false);
+    await syncDraft(newProducts);
   };
 
   const deleteProduct = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
-    try {
-      await apiService.deleteCatalog(id);
-      await refreshData();
-    } catch (err) {
-      alert("Failed to delete product: " + (err as Error).message);
-    }
+    const newProducts = products.filter(p => p.id !== id);
+    setProducts(newProducts);
+    await syncDraft(newProducts);
   };
 
   // Gallery CRUD
-  const saveGallery = async (items?: GalleryItem[], config?: GalleryConfig) => {
-    try {
-      await apiService.updateGallery(items || gallery, config || galleryConfig!);
-      await refreshData();
-      setEditingGalleryItem(null);
-      setIsAddingGalleryItem(false);
-    } catch (err) {
-      alert("Failed to save gallery: " + (err as Error).message);
-    }
+  const saveGallery = async (items?: GalleryItem[], config?: Partial<SiteConfig>) => {
+    if (!siteConfig) return;
+    const newItems = items || gallery;
+    const newSettings = { 
+      ...siteConfig, 
+      featuredFits: newItems,
+      ...config
+    };
+    
+    setGallery(newItems);
+    setSiteConfig(newSettings);
+    setEditingGalleryItem(null);
+    setIsAddingGalleryItem(false);
+    await syncDraft(undefined, newSettings);
   };
 
   const deleteGalleryItem = async (id: string) => {
@@ -210,13 +246,8 @@ if (Array.isArray(storedAffiliates)) {
   // Site Settings
   const saveSettings = async () => {
     if (!siteConfig) return;
-    try {
-      await apiService.updateSettings(siteConfig);
-      alert("Site settings updated successfully!");
-      await refreshData();
-    } catch (err) {
-      alert("Failed to save settings: " + (err as Error).message);
-    }
+    await syncDraft(undefined, siteConfig);
+    alert("Draft settings saved! Click 'Publish Live' to push to public site.");
   };
 
   if (isLoading) return <div className="min-h-screen bg-navy flex items-center justify-center text-gold font-bold">Initializing System...</div>;
@@ -226,7 +257,6 @@ if (Array.isArray(storedAffiliates)) {
       <div className="min-h-screen flex items-center justify-center bg-navy px-4">
         <div className="w-full max-w-md bg-cream p-10 rounded-[2.5rem] shadow-2xl text-center">
           <h1 className="text-3xl font-bold mb-6 text-navy font-belina">Admin Console</h1>
-          {workerConnected && <div className="mb-4 text-[10px] text-green-600 font-black uppercase tracking-widest">Backend Active</div>}
           <form onSubmit={handleLogin} className="space-y-6">
             <input 
               type={showPassword ? "text" : "password"}
@@ -235,15 +265,15 @@ if (Array.isArray(storedAffiliates)) {
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoFocus
+              disabled={isLoading}
             />
-            <button type="submit" className="w-full bg-navy text-gold py-4 rounded-2xl font-bold uppercase tracking-widest shadow-xl hover:bg-copper transition-all">
-              Login
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full bg-navy text-gold py-4 rounded-2xl font-bold uppercase tracking-widest shadow-xl hover:bg-copper transition-all disabled:opacity-50"
+            >
+              {isLoading ? 'Verifying...' : 'Login'}
             </button>
-            {!workerConnected && (
-              <button type="button" onClick={() => { setIsSafeMode(true); executeLogin(); }} className="text-[10px] font-black text-navy/40 uppercase tracking-widest hover:text-navy">
-                Bypass for Development
-              </button>
-            )}
           </form>
         </div>
       </div>
@@ -299,6 +329,19 @@ if (Array.isArray(storedAffiliates)) {
                     <option value={4}>4 Columns</option>
                   </select>
                 </div>
+                
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {gallery.map((item, idx) => (
+                <div key={item.id} className="bg-white p-4 rounded-2xl shadow-md border border-navy/5 relative group">
+                  <div className="aspect-square rounded-xl overflow-hidden mb-2">
+                    <img src={item.image} className="w-full h-full object-cover" alt={item.title} />
+                  </div>
+                  <p className="text-[10px] font-bold text-navy truncate">{item.title}</p>
+                  <div className="absolute inset-0 bg-navy/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 rounded-2xl">
+                    <button onClick={() => setEditingGalleryItem(item)} className="w-full py-1 bg-gold text-navy rounded font-bold text-[8px] uppercase">Edit</button>
+                    <button onClick={() => deleteGalleryItem(item.id)} className="w-full py-1 bg-red-500 text-whi           </select>
+                </div>
                 <div>
                   <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Display Count</label>
                   <input 
@@ -310,20 +353,28 @@ if (Array.isArray(storedAffiliates)) {
                 </div>
                 <div className="flex items-center justify-center">
                   <button 
-                    onClick={() => saveGallery(undefined, { ...galleryConfig, visible: !galleryConfig.visible })}
-                    className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] ${galleryConfig.visible ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+                    onClick={publishLive}
+                    disabled={isPublishing}
+                    className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] bg-copper text-white shadow-xl hover:bg-burntOrange transition-all disabled:opacity-50"
                   >
-                    {galleryConfig.visible ? 'Gallery Visible' : 'Gallery Hidden'}
+                    {isPublishing ? 'Publishing...' : 'Publish Live Site'}
                   </button>
                 </div>
               </div>
             )}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {gallery.map((item, idx) => (
                 <div key={item.id} className="bg-white p-4 rounded-2xl shadow-md border border-navy/5 relative group">
-                  <div className="aspect-square rounded-xl overflow-hidden mb-2">
+                  <div className="aspect-square rounded-xl overflow-hidden mb-2 relative">
                     <img src={item.image} className="w-full h-full object-cover" alt={item.title} />
+                    <div className="absolute top-1 right-1 flex flex-col gap-1">
+                      <span className={`px-1.5 py-0.5 rounded text-[6px] font-black uppercase tracking-widest ${item.visibility !== false ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                        {item.visibility !== false ? 'Visible' : 'Hidden'}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-navy/60 text-white text-[6px] font-black uppercase tracking-widest">
+                        {item.layoutType || 'standard'}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[10px] font-bold text-navy truncate">{item.title}</p>
                   <div className="absolute inset-0 bg-navy/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 rounded-2xl">
@@ -335,7 +386,7 @@ if (Array.isArray(storedAffiliates)) {
                         onClick={() => {
                           const newItems = [...gallery];
                           [newItems[idx], newItems[idx-1]] = [newItems[idx-1], newItems[idx]];
-                          newItems.forEach((it, i) => it.orderIndex = i);
+                          newItems.forEach((it, i) => it.order = i);
                           saveGallery(newItems);
                         }}
                         className="flex-1 py-1 bg-white/20 text-white rounded font-bold text-[8px]"
@@ -345,7 +396,7 @@ if (Array.isArray(storedAffiliates)) {
                         onClick={() => {
                           const newItems = [...gallery];
                           [newItems[idx], newItems[idx+1]] = [newItems[idx+1], newItems[idx]];
-                          newItems.forEach((it, i) => it.orderIndex = i);
+                          newItems.forEach((it, i) => it.order = i);
                           saveGallery(newItems);
                         }}
                         className="flex-1 py-1 bg-white/20 text-white rounded font-bold text-[8px]"
@@ -357,6 +408,7 @@ if (Array.isArray(storedAffiliates)) {
             </div>
           </div>
         )}
+
         {activeTab === 'products' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center">
@@ -373,7 +425,9 @@ if (Array.isArray(storedAffiliates)) {
                     </div>
                   </div>
                   <h3 className="font-bold text-navy text-lg">{p.name}</h3>
-                  <p className="text-[10px] text-navy/40 font-black uppercase tracking-widest mb-2">{p.type} • {p.category}</p>
+                  <p className="text-[10px] text-navy/40 font-black uppercase tracking-widest mb-2">
+                    {p.type} • {p.categories?.join(', ') || p.category}
+                  </p>
                   <p className="text-copper font-black">₦{p.price.toLocaleString()}</p>
                   <div className="mt-4 flex gap-2">
                     <button onClick={() => setEditingProduct(p)} className="flex-1 bg-navy/5 text-navy py-2 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-navy hover:text-white transition-all">Edit</button>
@@ -386,35 +440,52 @@ if (Array.isArray(storedAffiliates)) {
         )}
 
         {activeTab === 'orders' && (
-  <div className="space-y-6">
-    <h2 className="text-2xl font-bold text-navy">Orders</h2>
-    {orders.length === 0 ? (
-      <p>No orders yet.</p>
-    ) : (
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr className="border-b">
-            <th className="px-4 py-2">Order ID</th>
-            <th className="px-4 py-2">Customer</th>
-            <th className="px-4 py-2">Total</th>
-            <th className="px-4 py-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(order => (
-            <tr key={order.id} className="border-b">
-              <td className="px-4 py-2">{order.id}</td>
-              <td className="px-4 py-2">{order.customerName}</td>
-              <td className="px-4 py-2">₦{order.total}</td>
-              <td className="px-4 py-2">{order.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-navy/5 overflow-hidden">
+            <h2 className="text-3xl font-bold text-navy font-belina mb-8">Recent Inquiries</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b-2 border-cream text-navy/40 uppercase text-[10px] font-black tracking-widest">
+                    <th className="py-4">Product</th>
+                    <th className="py-4">Customer</th>
+                    <th className="py-4">Total</th>
+                    <th className="py-4">Status</th>
+                    <th className="py-4">Date</th>
+                    <th className="py-4">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {orders.map(o => (
+                    <tr key={o.id} className="border-b border-cream">
+                      <td className="py-4 font-bold">{o.productName} <span className="text-[10px] text-navy/40 ml-2">({o.productType})</span></td>
+                      <td className="py-4 text-navy/60">{o.customerEmail}</td>
+                      <td className="py-4 font-black">₦{o.total.toLocaleString()}</td>
+                      <td className="py-4">
+                        <span className={`px-2 py-1 rounded-lg font-black uppercase text-[8px] tracking-widest ${o.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-gold/20 text-burntOrange'}`}>
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="py-4 text-navy/40 text-[10px]">{new Date(o.timestamp).toLocaleDateString()}</td>
+                      <td className="py-4">
+                        {o.status === 'pending' && (
+                          <button 
+                            onClick={() => handleApproveOrder(o.id)}
+                            className="bg-navy text-gold px-3 py-1 rounded text-[8px] font-bold uppercase hover:bg-copper transition-all"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.length === 0 && <tr><td colSpan={5} className="py-12 text-center text-navy/30 italic">No orders tracked yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
+        
         {activeTab === 'payouts' && (
           <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-navy/5 overflow-hidden">
             <h2 className="text-3xl font-bold text-navy font-belina mb-8">Payout Approvals</h2>
@@ -501,21 +572,26 @@ if (Array.isArray(storedAffiliates)) {
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-navy/5">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-navy font-belina">Global Site CMS</h2>
-                <button onClick={saveSettings} className="bg-copper text-white px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl hover:bg-burntOrange transition-all">Publish Live</button>
+                <div className="flex gap-4">
+                  <button onClick={saveSettings} className="bg-navy text-gold px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl hover:bg-copper transition-all">Save Draft</button>
+                  <button onClick={publishLive} disabled={isPublishing} className="bg-copper text-white px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-xl hover:bg-burntOrange transition-all disabled:opacity-50">
+                    {isPublishing ? 'Publishing...' : 'Publish Live Site'}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                 <div className="space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Branding & Logo</h3>
                   <div className="flex gap-4 mb-4">
-                    <button onClick={() => setSiteConfig({...siteConfig, logoType: 'text'})} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.logoType === 'text' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Text Only</button>
-                    <button onClick={() => setSiteConfig({...siteConfig, logoType: 'image'})} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.logoType === 'image' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Image/Logo</button>
+                    <button onClick={() => setSiteConfig(prev => prev ? {...prev, logoType: 'text'} : null)} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.logoType === 'text' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Text Only</button>
+                    <button onClick={() => setSiteConfig(prev => prev ? {...prev, logoType: 'image'} : null)} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.logoType === 'image' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Image/Logo</button>
                   </div>
                   
                   {siteConfig.logoType === 'text' ? (
                     <div>
                       <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Logo Text</label>
-                      <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.logoText} onChange={e => setSiteConfig({...siteConfig, logoText: e.target.value})} />
+                      <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.logoText} onChange={e => setSiteConfig(prev => prev ? {...prev, logoText: e.target.value} : null)} />
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -528,16 +604,16 @@ if (Array.isArray(storedAffiliates)) {
                           />
                         </div>
                       )}
-                      <input type="file" accept="image/*" onChange={e => handleImageUpload(e, base64 => setSiteConfig({...siteConfig, logoImage: base64}))} className="w-full text-xs font-bold text-navy/40" />
+                      <input type="file" accept="image/*" onChange={e => handleImageUpload(e, base64 => setSiteConfig(prev => prev ? {...prev, logoImage: base64} : null))} className="w-full text-xs font-bold text-navy/40" />
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Logo Width (px)</label>
-                          <input type="number" className="w-full p-3 bg-cream/30 border rounded-xl font-bold text-navy" value={siteConfig.logoWidth || 150} onChange={e => setSiteConfig({...siteConfig, logoWidth: Number(e.target.value)})} />
+                          <input type="number" className="w-full p-3 bg-cream/30 border rounded-xl font-bold text-navy" value={siteConfig.logoWidth || 150} onChange={e => setSiteConfig(prev => prev ? {...prev, logoWidth: Number(e.target.value)} : null)} />
                         </div>
                         <div>
                           <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Logo Height (px)</label>
-                          <input type="number" className="w-full p-3 bg-cream/30 border rounded-xl font-bold text-navy" value={siteConfig.logoHeight || 50} onChange={e => setSiteConfig({...siteConfig, logoHeight: Number(e.target.value)})} />
+                          <input type="number" className="w-full p-3 bg-cream/30 border rounded-xl font-bold text-navy" value={siteConfig.logoHeight || 50} onChange={e => setSiteConfig(prev => prev ? {...prev, logoHeight: Number(e.target.value)} : null)} />
                         </div>
                       </div>
                     </div>
@@ -547,15 +623,15 @@ if (Array.isArray(storedAffiliates)) {
                 <div className="space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Hero Visuals</h3>
                   <div className="flex gap-4 mb-4">
-                    <button onClick={() => setSiteConfig({...siteConfig, heroBgType: 'url'})} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.heroBgType === 'url' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Static URL</button>
-                    <button onClick={() => setSiteConfig({...siteConfig, heroBgType: 'upload'})} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.heroBgType === 'upload' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>File Upload</button>
+                    <button onClick={() => setSiteConfig(prev => prev ? {...prev, heroBgType: 'url'} : null)} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.heroBgType === 'url' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>Static URL</button>
+                    <button onClick={() => setSiteConfig(prev => prev ? {...prev, heroBgType: 'upload'} : null)} className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all ${siteConfig.heroBgType === 'upload' ? 'border-navy bg-navy text-gold' : 'border-cream text-navy/40'}`}>File Upload</button>
                   </div>
                   {siteConfig.heroBgType === 'url' ? (
-                    <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.heroBgUrl} onChange={e => setSiteConfig({...siteConfig, heroBgUrl: e.target.value})} />
+                    <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.heroBgUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, heroBgUrl: e.target.value} : null)} />
                   ) : (
                     <div className="space-y-4">
                       {siteConfig.heroBgUpload && <img src={siteConfig.heroBgUpload} className="h-24 w-full object-cover rounded-xl border-2 border-cream shadow-sm" />}
-                      <input type="file" accept="image/*" onChange={e => handleImageUpload(e, base64 => setSiteConfig({...siteConfig, heroBgUpload: base64}))} className="w-full text-xs font-bold text-navy/40" />
+                      <input type="file" accept="image/*" onChange={e => handleImageUpload(e, base64 => setSiteConfig(prev => prev ? {...prev, heroBgUpload: base64} : null))} className="w-full text-xs font-bold text-navy/40" />
                     </div>
                   )}
                 </div>
@@ -563,22 +639,22 @@ if (Array.isArray(storedAffiliates)) {
                 <div className="lg:col-span-2 space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Marketing Content</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Main Title</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroTitle} onChange={e => setSiteConfig({...siteConfig, heroTitle: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Subheadline</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroSubtitle} onChange={e => setSiteConfig({...siteConfig, heroSubtitle: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Main Title</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroTitle} onChange={e => setSiteConfig(prev => prev ? {...prev, heroTitle: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Subheadline</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroSubtitle} onChange={e => setSiteConfig(prev => prev ? {...prev, heroSubtitle: e.target.value} : null)} /></div>
                   </div>
                 </div>
 
                 <div className="lg:col-span-2 space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Contact & Footer</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Email</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactEmail} onChange={e => setSiteConfig({...siteConfig, contactEmail: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Phone</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactPhone} onChange={e => setSiteConfig({...siteConfig, contactPhone: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Footer Text</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.footerContent} onChange={e => setSiteConfig({...siteConfig, footerContent: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Email</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactEmail} onChange={e => setSiteConfig(prev => prev ? {...prev, contactEmail: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Phone</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactPhone} onChange={e => setSiteConfig(prev => prev ? {...prev, contactPhone: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Footer Text</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.footerContent} onChange={e => setSiteConfig(prev => prev ? {...prev, footerContent: e.target.value} : null)} /></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Instagram URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.instagramUrl} onChange={e => setSiteConfig({...siteConfig, instagramUrl: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Facebook URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.facebookUrl} onChange={e => setSiteConfig({...siteConfig, facebookUrl: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">TikTok URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.tiktokUrl} onChange={e => setSiteConfig({...siteConfig, tiktokUrl: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Instagram URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.instagramUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, instagramUrl: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Facebook URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.facebookUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, facebookUrl: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">TikTok URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.tiktokUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, tiktokUrl: e.target.value} : null)} /></div>
                   </div>
                 </div>
               </div>
@@ -650,30 +726,41 @@ if (Array.isArray(storedAffiliates)) {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Market Section</label>
-                    <select className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingProduct?.category || 'men'} onChange={e => setEditingProduct({...(editingProduct || {}), category: e.target.value as any} as any)}>
-                      <option value="men">Men</option>
-                      <option value="women">Women</option>
-                      <option value="jeans">Jeans</option>
-                      <option value="shorts">Shorts</option>
-                      <option value="jackets">Jackets</option>
-                      <option value="custom">Custom</option>
-                    </select>
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Market Sections</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['men', 'women', 'unisex', 'jeans', 'shorts', 'jackets', 'custom'].map(cat => (
+                      <label key={cat} className="flex items-center gap-2 p-3 bg-white rounded-xl cursor-pointer hover:bg-cream transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded border-navy/10 text-navy focus:ring-navy"
+                          checked={editingProduct?.categories?.includes(cat as any) || false}
+                          onChange={e => {
+                            const current = editingProduct?.categories || [];
+                            const updated = e.target.checked 
+                              ? [...current, cat as any]
+                              : current.filter(c => c !== cat);
+                            setEditingProduct({...(editingProduct || {}), categories: updated} as any);
+                          }}
+                        />
+                        <span className="text-xs font-bold text-navy uppercase">{cat}</span>
+                      </label>
+                    ))}
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Display Order</label>
                     <input type="number" className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingProduct?.orderIndex || 0} onChange={e => setEditingProduct({...(editingProduct || {}), orderIndex: Number(e.target.value)} as any)} />
                   </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Image Display Size</label>
-                  <select className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={typeof editingProduct?.imageSize === 'string' ? editingProduct.imageSize : 'medium'} onChange={e => setEditingProduct({...(editingProduct || {}), imageSize: e.target.value as any} as any)}>
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
+                  <div>
+                    <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Image Display Size</label>
+                    <select className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={typeof editingProduct?.imageSize === 'string' ? editingProduct.imageSize : 'medium'} onChange={e => setEditingProduct({...(editingProduct || {}), imageSize: e.target.value as any} as any)}>
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-white rounded-2xl">
                   <span className="text-[10px] font-black text-navy/40 uppercase tracking-widest">Visibility Status</span>
@@ -711,19 +798,41 @@ if (Array.isArray(storedAffiliates)) {
                   })} />
                 </label>
               </div>
-              <div>
-                <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Title</label>
-                <input className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingGalleryItem?.title || ''} onChange={e => setEditingGalleryItem({...(editingGalleryItem || {}), title: e.target.value} as any)} />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Title</label>
+                  <input className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingGalleryItem?.title || ''} onChange={e => setEditingGalleryItem({...(editingGalleryItem || {}), title: e.target.value} as any)} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Layout Style</label>
+                  <select className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingGalleryItem?.layoutType || 'standard'} onChange={e => setEditingGalleryItem({...(editingGalleryItem || {}), layoutType: e.target.value as any} as any)}>
+                    <option value="standard">Standard</option>
+                    <option value="bold">Bold Card</option>
+                    <option value="wide">Wide Span</option>
+                    <option value="tall">Portrait Tall</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Description</label>
                 <textarea className="w-full p-4 bg-white border-none rounded-2xl font-bold text-navy" value={editingGalleryItem?.description || ''} onChange={e => setEditingGalleryItem({...(editingGalleryItem || {}), description: e.target.value} as any)} />
               </div>
+              <div className="flex items-center justify-between p-4 bg-white rounded-2xl">
+                <span className="text-[10px] font-black text-navy/40 uppercase tracking-widest">Visibility</span>
+                <button 
+                  onClick={() => setEditingGalleryItem({...(editingGalleryItem || {}), visibility: !editingGalleryItem?.visibility} as any)}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${editingGalleryItem?.visibility !== false ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+                >
+                  {editingGalleryItem?.visibility !== false ? 'Visible' : 'Hidden'}
+                </button>
+              </div>
               <button 
                 onClick={() => {
                   const item = editingGalleryItem as GalleryItem;
                   if (!item.id) item.id = Math.random().toString(36).substr(2, 9);
-                  if (item.orderIndex === undefined) item.orderIndex = gallery.length;
+                  if (item.order === undefined) item.order = gallery.length;
+                  if (item.visibility === undefined) item.visibility = true;
+                  if (item.layoutType === undefined) item.layoutType = 'standard';
                   
                   const newGallery = [...gallery];
                   const idx = newGallery.findIndex(i => i.id === item.id);
