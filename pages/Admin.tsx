@@ -343,7 +343,7 @@ const [siteConfig, setSiteConfig] = useState<SiteConfig>(defaultConfig);
                     <button onClick={() => deleteGalleryItem(item.id)} className="w-full py-1 bg-red-500 text-whi           </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Display Count</label>
+                  <label className="text-xs font-black text-navy/40 uppercase tracking-widest mb-1 block">
                   <input 
                     type="number"
                     className="w-full p-3 bg-cream/30 border-none rounded-xl font-bold text-navy"
