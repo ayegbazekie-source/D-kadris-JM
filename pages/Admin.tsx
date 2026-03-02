@@ -329,39 +329,71 @@ const [siteConfig, setSiteConfig] = useState<SiteConfig>(defaultConfig);
                     <option value={4}>4 Columns</option>
                   </select>
                 </div>
-                
+
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {gallery.map((item, idx) => (
-                <div key={item.id} className="bg-white p-4 rounded-2xl shadow-md border border-navy/5 relative group">
-                  <div className="aspect-square rounded-xl overflow-hidden mb-2">
-                    <img src={item.image} className="w-full h-full object-cover" alt={item.title} />
-                  </div>
-                  <p className="text-[10px] font-bold text-navy truncate">{item.title}</p>
-                  <div className="absolute inset-0 bg-navy/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 rounded-2xl">
-                    <button onClick={() => setEditingGalleryItem(item)} className="w-full py-1 bg-gold text-navy rounded font-bold text-[8px] uppercase">Edit</button>
-                    <button onClick={() => deleteGalleryItem(item.id)} className="w-full py-1 bg-red-500 text-whi           </select>
-                </div>
-                <div>
-                  <label className="text-xs font-black text-navy/40 uppercase tracking-widest mb-1 block">
-                  <input 
-                    type="number"
-                    className="w-full p-3 bg-cream/30 border-none rounded-xl font-bold text-navy"
-                    value={galleryConfig.displayCount}
-                    onChange={e => saveGallery(undefined, { ...galleryConfig, displayCount: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="flex items-center justify-center">
-                  <button 
-                    onClick={publishLive}
-                    disabled={isPublishing}
-                    className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] bg-copper text-white shadow-xl hover:bg-burntOrange transition-all disabled:opacity-50"
-                  >
-                    {isPublishing ? 'Publishing...' : 'Publish Live Site'}
-                  </button>
-                </div>
-              </div>
-            )}
+  {gallery.map((item, idx) => (
+    <div key={item.id} className="bg-white p-4 rounded-2xl shadow-md border border-navy/5 relative group">
+      
+      <div className="aspect-square rounded-xl overflow-hidden mb-2">
+        <img 
+          src={item.image} 
+          className="w-full h-full object-cover" 
+          alt={item.title} 
+        />
+      </div>
+
+      <p className="text-xs font-bold text-navy truncate">
+        {item.title}
+      </p>
+
+      <div className="absolute inset-0 bg-navy/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 rounded-2xl">
+        
+        <button 
+          onClick={() => setEditingGalleryItem(item)} 
+          className="w-full py-1 bg-gold text-navy rounded font-bold text-xs uppercase"
+        >
+          Edit
+        </button>
+
+        <button 
+          onClick={() => deleteGalleryItem(item.id)} 
+          className="w-full py-1 bg-red-500 text-white rounded font-bold text-xs uppercase"
+        >
+          Delete
+        </button>
+
+      </div>
+    </div>
+  ))}
+</div>
+
+<div>
+  <label className="text-xs font-black text-gray-500 uppercase tracking-widest mb-1 block">
+    Display Count
+  </label>
+
+  <input 
+    type="number"
+    className="w-full p-3 bg-cream/30 border-none rounded-xl font-bold text-navy"
+    value={galleryConfig.displayCount}
+    onChange={e => saveGallery(undefined, { 
+      ...galleryConfig, 
+      displayCount: Number(e.target.value) 
+    })}
+  />
+</div>
+
+<div className="flex items-center justify-center">
+  <button 
+    onClick={publishLive}
+    disabled={isPublishing}
+    className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs bg-copper text-white shadow-xl hover:bg-burntOrange transition-all disabled:opacity-50"
+  >
+    {isPublishing ? 'Publishing...' : 'Publish Live Site'}
+  </button>
+</div>
+            
            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {gallery.map((item, idx) => (
                 <div key={item.id} className="bg-white p-4 rounded-2xl shadow-md border border-navy/5 relative group">
