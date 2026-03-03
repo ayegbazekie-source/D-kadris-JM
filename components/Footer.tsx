@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { storage } from '../services/storage';
+import { apiService } from '../services/api';
 import { SiteConfig } from '../types';
 
 const Footer: React.FC = () => {
-  const [config, setConfig] = useState<SiteConfig>(storage.getSiteConfig());
+  const [config, setConfig] = useState<SiteConfig | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
 
   const isStudioPreview = () => {
@@ -14,11 +13,21 @@ const Footer: React.FC = () => {
   };
 
   useEffect(() => {
-    const updateConfig = () => setConfig(storage.getSiteConfig());
-    setShowAdmin(isStudioPreview());
-    window.addEventListener('dkadris_storage_update', updateConfig);
-    return () => window.removeEventListener('dkadris_storage_update', updateConfig);
+    const fetchSettings = async () => {
+      try {
+        const liveConfig = await apiService.getLiveConfig();
+        setConfig(liveConfig.siteSettings);
+      } catch (err) {
+        console.error("Failed to fetch settings", err);
+      }
+    };
+
+    fetchSettings();
+    const authed = localStorage.getItem('dkadris_auth_token') === 'mock-token-dkadris';
+    setShowAdmin(isStudioPreview() || authed);
   }, []);
+
+  if (!config) return null;
 
   return (
     <footer className="bg-navy text-gold py-12 px-6">
@@ -29,8 +38,8 @@ const Footer: React.FC = () => {
         </div>
         <div>
           <h4 className="text-lg font-semibold mb-4 uppercase tracking-widest text-xs">Contact Us</h4>
-          <p className="text-white/80">📧 dkadristailoringservice@gmail.com</p>
-          <p className="text-white/80">📍 Lokoja, Nigeria</p>
+          <p className="text-white/80">📧 {config.contactEmail}</p>
+          <p className="text-white/80">📞 {config.contactPhone}</p>
         </div>
         <div>
           <h4 className="text-lg font-semibold mb-4 uppercase tracking-widest text-xs">Follow Us</h4>
