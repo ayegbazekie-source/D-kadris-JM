@@ -1,45 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MOTIVATIONAL_MESSAGES } from '../constants';
-import { storage } from '../services/storage';
-import { SiteConfig, FeaturedFit } from '../types';
+import { apiService } from '../services/api';
+import { SiteConfig, GalleryItem, GalleryConfig } from '../types';
 
 const Home: React.FC = () => {
   const [msgIndex, setMsgIndex] = useState(0);
-  const [config, setConfig] = useState<SiteConfig>(
-  storage.getSiteConfig()
-);
+  const [config, setConfig] = useState<SiteConfig | null>(null);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [galleryConfig, setGalleryConfig] = useState<GalleryConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const updateConfig = () => {
-      setConfig(storage.getSiteConfig());
+    const fetchData = async () => {
+      try {
+        const liveConfig = await apiService.getLiveConfig();
+        setConfig(liveConfig.siteSettings);
+        setGallery(liveConfig.siteSettings?.featuredFits || []);
+      } catch (err) {
+        console.error("Failed to fetch home data", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    window.addEventListener('dkadris_storage_update', updateConfig);
+    fetchData();
     
     const interval = setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % MOTIVATIONAL_MESSAGES.length);
     }, 4000);
 
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('dkadris_storage_update', updateConfig);
-    };
+    return () => clearInterval(interval);
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <div className="w-12 h-12 border-4 border-navy border-t-gold rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-cream text-navy p-6 text-center">
+        <h2 className="text-2xl font-bold mb-4">System Temporarily Unavailable</h2>
+        <p className="mb-8">We are currently updating our collection. Please check back in a few minutes.</p>
+        <button onClick={() => window.location.reload()} className="bg-navy text-gold px-8 py-3 rounded-xl font-bold">Retry Connection</button>
+      </div>
+    );
+  }
 
   const getHeroBackground = () => {
     if (config.heroBgType === 'upload' && config.heroBgUpload) {
       return config.heroBgUpload;
     }
     return config.heroBgUrl;
-  };
-
-  const getLayoutClass = (type: FeaturedFit['layoutType']) => {
-    switch (type) {
-      case 'bold': return 'md:col-span-2 md:row-span-2 h-[400px] md:h-[600px]';
-      case 'wide': return 'md:col-span-2 h-[250px] md:h-[300px]';
-      case 'tall': return 'md:row-span-2 h-[400px] md:h-[600px]';
-      default: return 'h-[250px] md:h-[300px]';
-    }
   };
 
   return (
@@ -108,38 +124,57 @@ const Home: React.FC = () => {
       </section>
 
       {/* Featured Fits Section */}
-      <section className="py-24 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-navy font-belina mb-2">Signature Gallery</h2>
-            <p className="text-navy/40 font-bold uppercase tracking-widest text-xs">Curated style statements</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
-            {config.featuredFits?.map((fit) => (
-              <div 
-                key={fit.id} 
-                className={`relative group rounded-3xl overflow-hidden shadow-2xl border-4 border-navy/5 ${getLayoutClass(fit.layoutType)}`}
-              >
-                <img 
-                  src={fit.image} 
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                  alt={fit.title}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/20 to-transparent opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6 md:p-10">
-                  <h4 className={`font-bold text-gold font-belina ${fit.layoutType === 'bold' ? 'text-2xl md:text-4xl' : 'text-xl md:text-2xl'}`}>
-                    {fit.title}
-                  </h4>
-                  <p className="text-white mt-2 max-w-sm text-sm md:text-base">{fit.description}</p>
-                  <Link to="/catalog" className="mt-4 inline-block text-gold underline font-bold uppercase tracking-widest text-xs">
-                    View in Catalog
-                  </Link>
+      {gallery.length > 0 && (
+        <section className="py-24 px-4 bg-white">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-12 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-navy font-belina mb-2">Signature Gallery</h2>
+              <p className="text-navy/40 font-bold uppercase tracking-widest text-xs">Curated style statements</p>
+            </div>
+            
+            <div 
+              className={`grid gap-6 md:gap-8 ${
+                config.galleryLayoutStyle === 'grid' 
+                  ? `grid-cols-1 md:grid-cols-${config.galleryColumns || 3}` 
+                  : config.galleryLayoutStyle === 'asymmetric'
+                  ? 'grid-cols-1 md:grid-cols-4'
+                  : 'flex overflow-x-auto pb-8 snap-x'
+              }`}
+              style={{ gap: `${config.gallerySpacing || 4}px` }}
+            >
+              {gallery.filter(item => item.visibility !== false).map((item, idx) => (
+                <div 
+                  key={item.id} 
+                  className={`relative group rounded-3xl overflow-hidden shadow-2xl border-4 border-navy/5 ${
+                    config.galleryLayoutStyle === 'carousel' ? 'min-w-[300px] snap-center' : ''
+                  } ${
+                    config.galleryLayoutStyle === 'asymmetric' 
+                      ? (idx % 5 === 0 ? 'md:col-span-2 md:row-span-2' : '')
+                      : ''
+                  } ${
+                    item.layoutType === 'wide' ? 'md:col-span-2' : 
+                    item.layoutType === 'tall' ? 'md:row-span-2' : 
+                    item.layoutType === 'bold' ? 'border-gold shadow-gold/20' : ''
+                  } aspect-[3/4]`}
+                >
+                  <img 
+                    src={item.image} 
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                    alt={item.title}
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy/95 via-navy/20 to-transparent opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6 md:p-10">
+                    <h4 className="font-bold text-gold font-belina text-xl md:text-2xl">
+                      {item.title}
+                    </h4>
+                    <p className="text-white mt-2 max-w-sm text-sm md:text-base">{item.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Call to Action */}
       <section className="bg-navy py-24 px-6 text-center text-white relative overflow-hidden">
@@ -148,7 +183,7 @@ const Home: React.FC = () => {
         
         <div className="relative z-10 max-w-2xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-gold font-belina">Your Fit, Your Way</h2>
-          <p className="text-lg md:text-xl mb-10 text-white/80">Book a custom measurement session or browse our ready-to-wear collection designed for Nigerians.</p>
+          <p className="text-lg md:text-xl mb-10 text-white/80">Contact us at {config.contactPhone} or {config.contactEmail} for custom measurement sessions.</p>
           <Link to="/catalog" className="inline-block bg-copper px-10 py-5 rounded-2xl font-bold text-lg md:text-xl hover:bg-burntOrange transition-colors shadow-2xl border border-white/10">
             Start Custom Order
           </Link>
@@ -156,7 +191,7 @@ const Home: React.FC = () => {
       </section>
 
       <div className="bg-cream py-6 text-center italic text-navy/60 font-medium px-4">
-        Ready-to-wear sizes also available in all major cities.
+        {config.footerContent}
       </div>
     </div>
   );
