@@ -1,13 +1,20 @@
+export type ImageSize = 'small' | 'medium' | 'large' | { width: number; height: number };
+
+export type ProductCategory = 'men' | 'women' | 'unisex' | 'jeans' | 'shorts' | 'jackets' | 'custom';
 
 export interface Product {
   id: string;
   name: string;
   price: number;
-  category: 'men' | 'women';
+  category?: ProductCategory; // Deprecated, but keeping for migration safety
+  categories: ProductCategory[];
   type: string;
   image: string;
+  imageSize?: ImageSize;
+  orderIndex?: number;
   quantity?: number;
   whitelisted: boolean;
+  published: boolean;
   createdAt: number;
 }
 
@@ -33,6 +40,8 @@ export interface Order {
   status: 'pending' | 'paid' | 'delivered';
   total: number;
   paymentRef?: string;
+  commissionAmount?: number;
+  commissionRate?: number;
 }
 
 export interface Affiliate {
@@ -72,11 +81,13 @@ export interface GalleryItem {
   title: string;
   description: string;
   image: string;
-  orderIndex: number;
+  layoutType: 'standard' | 'bold' | 'wide' | 'tall';
+  order: number;
+  visibility: boolean;
 }
 
 export interface GalleryConfig {
-  layout: 'grid' | 'carousel';
+  layout: 'grid' | 'carousel' | 'asymmetric';
   columns: 2 | 3 | 4;
   displayCount: number;
   visible: boolean;
@@ -102,11 +113,19 @@ export interface SiteConfig {
   contactEmail: string;
   contactPhone: string;
   featureToggles: FeatureToggles;
+  featuredFits: GalleryItem[];
+  galleryLayoutStyle: 'grid' | 'carousel' | 'asymmetric';
+  gallerySpacing: number;
+  galleryColumns: number;
+  isMaintenance: boolean;
+}
+
+export interface AppConfig {
+  catalogs: Product[];
+  siteSettings: SiteConfig;
 }
 
 export interface AppData {
-  catalogs: Product[];
-  gallery: GalleryItem[];
-  galleryConfig: GalleryConfig;
-  siteSettings: SiteConfig;
+  draft: AppConfig;
+  live: AppConfig;
 }
