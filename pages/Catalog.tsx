@@ -9,7 +9,7 @@ const Catalog: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
-  const [filter, setFilter] = useState<'all' | 'men' | 'women' | 'unisex' | 'jeans' | 'shorts' | 'jackets' | 'custom'>('all');
+  const [filter, setFilter] = useState<'all' | 'men' | 'women' | 'unisex' | 'shorts' | 'jackets' | 'custom'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [orderType, setOrderType] = useState<string>('trouser');
