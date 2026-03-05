@@ -1,6 +1,6 @@
 import { Order, Affiliate, PayoutRequest } from '../types';
 
-const BASE_URL = '/api';
+const BASE_URL = "https://api.d-kadrisdenims.com/api"
 
 let memoryToken: string | null = null;
 
