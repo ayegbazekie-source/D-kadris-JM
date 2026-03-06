@@ -1,7 +1,6 @@
 import { Order, Affiliate, PayoutRequest } from '../types';
 
-const BASE_URL = "https://api.d-kadrisdenims.com/api"
-
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 let memoryToken: string | null = null;
 
 async function request(endpoint: string, options: RequestInit = {}) {
