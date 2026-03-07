@@ -49,10 +49,11 @@ const Admin: React.FC = () => {
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      const draft = await apiService.getDraftConfig();
-      setProducts(draft.catalogs || []);
-      setSiteConfig(draft.siteSettings);
-      setGallery(draft.siteSettings?.featuredFits || []);
+      const draft = await apiService.getDraftConfig() || {};
+
+setProducts(draft?.catalogs || []);
+setSiteConfig(draft?.siteSettings || null);
+setGallery(draft?.siteSettings?.featuredFits || []);
       
       // Fetch orders from backend
       try {
@@ -439,7 +440,7 @@ const Admin: React.FC = () => {
               <button onClick={() => setIsAddingProduct(true)} className="bg-navy text-gold px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-copper transition-all">+ Add Product</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map(p => (
+              {Array.isArray(products) && products.map(p => (
                 <div key={p.id} className="bg-white p-6 rounded-[2rem] shadow-xl border border-navy/5 relative group">
                   <div className="aspect-[3/4] rounded-2xl overflow-hidden mb-4 bg-cream relative">
                     <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
@@ -449,9 +450,9 @@ const Admin: React.FC = () => {
                   </div>
                   <h3 className="font-bold text-navy text-lg">{p.name}</h3>
                   <p className="text-[10px] text-navy/40 font-black uppercase tracking-widest mb-2">
-                    {p.type} • {p.categories?.join(', ') || p.category}
+                    {p.type} • {Array.isArray(p.categories) ? p.categories.join(', ') : p.category}
                   </p>
-                  <p className="text-copper font-black">₦{p.price.toLocaleString()}</p>
+                  <p className="text-copper font-black">₦{(p.price || 0).toLocaleString()}</p>
                   <div className="mt-4 flex gap-2">
                     <button onClick={() => setEditingProduct(p)} className="flex-1 bg-navy/5 text-navy py-2 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-navy hover:text-white transition-all">Edit</button>
                     <button onClick={() => deleteProduct(p.id)} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Delete</button>
@@ -567,7 +568,7 @@ const Admin: React.FC = () => {
                   {siteConfig.logoType === 'text' ? (
                     <div>
                       <label className="text-[10px] font-black text-navy/40 uppercase tracking-widest mb-1 block">Logo Text</label>
-                      <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.logoText} onChange={e => setSiteConfig(prev => prev ? {...prev, logoText: e.target.value} : null)} />
+                      <input type="text" className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.logoText || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, logoText: e.target.value} : null)} />
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -615,22 +616,22 @@ const Admin: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Marketing Content</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Main Title</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroTitle} onChange={e => setSiteConfig(prev => prev ? {...prev, heroTitle: e.target.value} : null)} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Subheadline</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroSubtitle} onChange={e => setSiteConfig(prev => prev ? {...prev, heroSubtitle: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Main Title</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroTitle || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, heroTitle: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Hero Subheadline</label><textarea className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" rows={3} value={siteConfig.heroSubtitle || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, heroSubtitle: e.target.value} : null)} /></div>
                   </div>
                 </div>
 
                 <div className="lg:col-span-2 space-y-6">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-navy/40 border-b pb-2">Contact & Footer</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Email</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactEmail} onChange={e => setSiteConfig(prev => prev ? {...prev, contactEmail: e.target.value} : null)} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Phone</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactPhone} onChange={e => setSiteConfig(prev => prev ? {...prev, contactPhone: e.target.value} : null)} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Footer Text</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.footerContent} onChange={e => setSiteConfig(prev => prev ? {...prev, footerContent: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Email</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactEmail || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, contactEmail: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Contact Phone</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.contactPhone || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, contactPhone: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Footer Text</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.footerContent || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, footerContent: e.target.value} : null)} /></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Instagram URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.instagramUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, instagramUrl: e.target.value} : null)} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Facebook URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.facebookUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, facebookUrl: e.target.value} : null)} /></div>
-                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">TikTok URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.tiktokUrl} onChange={e => setSiteConfig(prev => prev ? {...prev, tiktokUrl: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Instagram URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.instagramUrl || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, instagramUrl: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">Facebook URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.facebookUrl || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, facebookUrl: e.target.value} : null)} /></div>
+                    <div><label className="text-[10px] font-black text-navy/40 uppercase mb-2 block">TikTok URL</label><input className="w-full p-4 bg-cream/30 border rounded-2xl font-bold text-navy" value={siteConfig.tiktokUrl || ''} onChange={e => setSiteConfig(prev => prev ? {...prev, tiktokUrl: e.target.value} : null)} /></div>
                   </div>
                 </div>
               </div>
